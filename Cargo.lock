@@ -147,6 +147,7 @@ dependencies = [
 name = "demo_tracing"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "opentelemetry",
  "opentelemetry-jaeger",
  "tokio",
