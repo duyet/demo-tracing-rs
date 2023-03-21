@@ -1,75 +1,54 @@
-use opentelemetry::{
-    global,
-    sdk::trace::{self, Sampler},
+use opentelemetry::global;
+use tracing::{info, span, Event, Subscriber};
+use tracing_subscriber::{
+    layer::{Context, Layer},
+    prelude::*,
+    registry::LookupSpan,
 };
-use tracing::{error, info, span};
-use tracing_subscriber::prelude::*;
+
+struct PrintingLayer;
+impl<S> Layer<S> for PrintingLayer
+where
+    S: Subscriber + for<'lookup> LookupSpan<'lookup>,
+{
+    fn on_event(&self, event: &Event, ctx: Context<S>) {
+        let span = ctx.event_span(event);
+        println!("Event in span: {:?}", span.map(|s| s.name()));
+    }
+}
 
 #[tokio::main]
 async fn main() {
-    // Create a new tracer pipeline
-    let jaeger_tracer = opentelemetry_jaeger::new_collector_pipeline()
-        .with_endpoint("http://localhost:14268/api/traces")
-        .with_service_name("data.transformation")
-        .with_isahc()
-        .with_trace_config(
-            trace::config()
-                .with_sampler(Sampler::AlwaysOn)
-                .with_max_events_per_span(64)
-                .with_max_attributes_per_span(16),
-        )
+    let otel_tracer = opentelemetry_jaeger::new_agent_pipeline()
+        .with_service_name("data.transformation.agent")
         .install_batch(opentelemetry::runtime::Tokio)
-        .unwrap();
+        .expect("Error initializing Jaeger exporter");
 
     // Create a tracing layer with the configured tracer
-    let telemetry = tracing_opentelemetry::layer().with_tracer(jaeger_tracer);
+    let otel_layer = tracing_opentelemetry::layer().with_tracer(otel_tracer);
 
     // Stdout
-    let stdout_log = tracing_subscriber::fmt::layer().pretty();
+    let stdout_layer = tracing_subscriber::fmt::layer().pretty();
 
     // Use the tracing subscriber `Registry`
-    tracing_subscriber::registry()
-        .with(telemetry)
-        .with(stdout_log)
-        .init();
+    let s = tracing_subscriber::registry()
+        .with(otel_layer)
+        .with(stdout_layer)
+        .with(PrintingLayer);
 
-    // Spans will be sent to the configured OpenTelemetry exporter
-    let root = span!(tracing::Level::TRACE, "app_start", work_units = 2);
-    let _enter = root.enter();
+    tracing::subscriber::with_default(s, || {
+        // Spans will be sent to the configured OpenTelemetry exporter
+        let root = span!(tracing::Level::TRACE, "app_start", work_units = 2);
+        let _enter = root.enter();
 
-    error!(
-        metric = "abc",
-        "This error will be logged in the root span."
-    );
+        my_func(12);
 
-    let items: Vec<_> = (0..5)
-        .into_iter()
-        .map(|i| {
-            tokio::spawn(async move {
-                let processing_file = span!(
-                    tracing::Level::INFO,
-                    "processing_file",
-                    file = "file.json.gz",
-                    step = i
-                );
-                let _enter_processing_file = processing_file.enter();
-                info!(
-                    file = "file.json.gz",
-                    step = i,
-                    "This event will be logged in the loop span."
-                );
-                error!("This error will be logged in the loop span.");
+        info!(
+            metric = "abc",
+            "This error will be logged in the root span."
+        );
+    });
 
-                my_func(i);
-            })
-        })
-        .collect();
-
-    futures::future::join_all(items).await;
-
-    info!("This event will be logged in the root span.");
-
-    // Shutdown trace pipeline
     global::shutdown_tracer_provider();
 }
 
