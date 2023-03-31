@@ -12,5 +12,5 @@ tracing-subscriber = "0.3.16"
 opentelemetry = { version = "*", features = ["rt-tokio-current-thread"] }
 opentelemetry-jaeger = { version = "0.17.0", features = ["rt-tokio", "collector_client", "isahc_collector_client", "reqwest_collector_client"] }
 tokio = { version = "1.26.0", features = ["full"] }
-futures = "0.3.27"
+futures = "0.3.28"
 
