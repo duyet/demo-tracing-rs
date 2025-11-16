@@ -1,1 +1,21 @@
+# Rust
 /target
+Cargo.lock
+*.pdb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+*.profraw
+*.profdata
+
+# Coverage
+cobertura.xml
+lcov.info
+tarpaulin-report.html

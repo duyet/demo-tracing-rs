@@ -1,58 +1,63 @@
-use opentelemetry::global;
-use tracing::{info, span, Event, Subscriber};
-use tracing_subscriber::{
-    layer::{Context, Layer},
-    prelude::*,
-    registry::LookupSpan,
+use anyhow::Result;
+use demo_tracing::{
+    fetch_and_transform, init_tracing, operation_that_may_fail, process_data, shutdown_tracing,
 };
-
-struct PrintingLayer;
-impl<S> Layer<S> for PrintingLayer
-where
-    S: Subscriber + for<'lookup> LookupSpan<'lookup>,
-{
-    fn on_event(&self, event: &Event, ctx: Context<S>) {
-        let span = ctx.event_span(event);
-        println!("Event in span: {:?}", span.map(|s| s.name()));
-    }
-}
+use tracing::{error, info, span, warn, Level};
 
 #[tokio::main]
-async fn main() {
-    let otel_tracer = opentelemetry_jaeger::new_agent_pipeline()
-        .with_service_name("data.transformation.agent")
-        .install_batch(opentelemetry::runtime::Tokio)
-        .expect("Error initializing Jaeger exporter");
+async fn main() -> Result<()> {
+    // Initialize tracing (with proper error handling)
+    init_tracing()?;
 
-    // Create a tracing layer with the configured tracer
-    let otel_layer = tracing_opentelemetry::layer().with_tracer(otel_tracer);
+    // Create root span for the entire application lifecycle
+    let root_span = span!(
+        Level::INFO,
+        "app_lifecycle",
+        version = env!("CARGO_PKG_VERSION"),
+        environment = "demo"
+    );
+    let _root_guard = root_span.enter();
 
-    // Stdout
-    let stdout_layer = tracing_subscriber::fmt::layer().pretty();
+    info!("Application starting");
 
-    // Use the tracing subscriber `Registry`
-    let s = tracing_subscriber::registry()
-        .with(otel_layer)
-        .with(stdout_layer)
-        .with(PrintingLayer);
+    // Example 1: Simple function instrumentation
+    match process_data(42, 2) {
+        Ok(result) => info!(result, "Data processed successfully"),
+        Err(e) => error!(error = %e, "Data processing failed"),
+    }
 
-    tracing::subscriber::with_default(s, || {
-        // Spans will be sent to the configured OpenTelemetry exporter
-        let root = span!(tracing::Level::TRACE, "app_start", work_units = 2);
-        let _enter = root.enter();
+    // Example 2: Negative value handling
+    process_data(-10, 5)?;
 
-        my_func(12);
+    // Example 3: Async operations with nested spans
+    let items = vec![1, 2, 3, 4, 5];
+    let futures: Vec<_> = items
+        .into_iter()
+        .map(|id| fetch_and_transform(id))
+        .collect();
 
-        info!(
-            metric = "abc",
-            "This error will be logged in the root span."
-        );
-    });
+    let results = futures::future::join_all(futures).await;
+    info!(
+        success_count = results.iter().filter(|r| r.is_ok()).count(),
+        total_count = results.len(),
+        "Batch processing complete"
+    );
 
-    global::shutdown_tracer_provider();
-}
+    // Example 4: Error propagation through spans
+    if let Err(e) = operation_that_may_fail(false).await {
+        error!(error = %e, "Unexpected failure in success case");
+    }
 
-#[tracing::instrument]
-fn my_func(val: i8) {
-    info!("Calling my_func with argument {}", val);
+    if let Err(e) = operation_that_may_fail(true).await {
+        warn!(error = %e, "Expected failure occurred (this is OK for demo)");
+    }
+
+    info!("Application shutting down gracefully");
+
+    // CRITICAL: Flush all pending spans to Jaeger before exit
+    // Without this, buffered spans may be lost
+    shutdown_tracing();
+
+    info!("Tracing shutdown complete");
+    Ok(())
 }
