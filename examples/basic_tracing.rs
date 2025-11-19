@@ -1,10 +1,10 @@
 /// Basic tracing example demonstrating fundamental patterns
 ///
-/// Run with: cargo run --example basic_tracing
+/// Run with: `cargo run --example basic_tracing`
 ///
 /// This example shows:
 /// - Manual span creation
-/// - Automatic instrumentation with #[instrument]
+/// - Automatic instrumentation with `#[instrument]`
 /// - Adding custom attributes to spans
 /// - Nested spans and hierarchy
 use tracing::{info, span, Level};

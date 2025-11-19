@@ -82,7 +82,7 @@ pub fn init_tracing() -> Result<()> {
 
 /// Simulate a computational task with tracing.
 ///
-/// The `#[tracing::instrument]` macro automatically:
+/// The [`#[tracing::instrument]`](macro@tracing::instrument) macro automatically:
 /// - Creates a span with the function name
 /// - Adds function arguments as span attributes
 /// - Tracks entry and exit

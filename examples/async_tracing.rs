@@ -1,6 +1,6 @@
 /// Async tracing example demonstrating concurrent operations
 ///
-/// Run with: cargo run --example async_tracing
+/// Run with: `cargo run --example async_tracing`
 ///
 /// This example shows:
 /// - Tracing across async boundaries

@@ -1,10 +1,10 @@
 /// Error handling and tracing example
 ///
-/// Run with: cargo run --example error_handling
+/// Run with: `cargo run --example error_handling`
 ///
 /// This example shows:
 /// - Error propagation through spans
-/// - Using #[instrument(err)] for automatic error logging
+/// - Using `#[instrument(err)]` for automatic error logging
 /// - Custom error types with tracing
 /// - Recovering from errors while maintaining trace context
 use std::fmt;
@@ -30,7 +30,7 @@ impl fmt::Display for AppError {
 
 impl std::error::Error for AppError {}
 
-/// Demonstrates automatic error logging with #[instrument(err)]
+/// Demonstrates automatic error logging with `#[instrument(err)]`
 #[instrument(err)]
 fn validate_user_input(input: &str) -> Result<String, AppError> {
     info!("Validating user input");
