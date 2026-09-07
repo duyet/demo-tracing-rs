@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 tracing = "0.1.37"
-tracing-opentelemetry = "0.18.0"
+tracing-opentelemetry = "0.33.0"
 tracing-subscriber = "0.3.17"
 opentelemetry = { version = "0.18.0", features = ["rt-tokio"] }
 opentelemetry-jaeger = { version = "0.18.0", features = ["rt-tokio"] }
